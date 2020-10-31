@@ -29,7 +29,7 @@ def AP(bb_confidence,bb_iou,gt_number,threshold = 0.5):
 			fp += 1
 		else:
 			tp += 1
-		if i == 0:
+		if i == 0: # the first bb
 			r = tp/gt_number  #recall
 			p = tp/(i+1)      #precision
 		else:
@@ -39,7 +39,8 @@ def AP(bb_confidence,bb_iou,gt_number,threshold = 0.5):
 	return fp,tp,ap
 
 def compute(clas,ground_truth,predict,threshold = 0.3):
-	fn = 0
+	fn,fp,tp,ap,flag = 0,0,0,0,0
+	#print(clas)
 	for img in range(len(ground_truth)):
 		# find class
 		gt_bb_list = []
@@ -50,14 +51,18 @@ def compute(clas,ground_truth,predict,threshold = 0.3):
 		for i in range(len(predict[img])):
 			if predict[img][i][0] == clas:
 				pr_bb_list.append(predict[img][i])
-		
+		# if no gt or no predict in this class
 		if pr_bb_list == [] and gt_bb_list == []:
-			return 0,0,0,0,0
+			continue
 		elif pr_bb_list and gt_bb_list == []:
-			return 0,len(pr_bb_list),0,0,1
+			fp += len(pr_bb_list)
+			flag = 1
+			continue
 		elif pr_bb_list == [] and gt_bb_list:
-			return len(gt_bb_list),0,0,0,1
-
+			fn += len(gt_bb_list)
+			flag = 1
+			continue
+		# if gt and predict have data
 		iou_table = [[-1 for i in range(len(pr_bb_list))] for j in range(len(gt_bb_list))]
 		for i in range(len(gt_bb_list)):
 			gt_bb = [float(gt_bb_list[i][1])-float(gt_bb_list[i][3])/2,float(gt_bb_list[i][2])-float(gt_bb_list[i][4])/2,float(gt_bb_list[i][1])+float(gt_bb_list[i][3])/2,float(gt_bb_list[i][2])+float(gt_bb_list[i][4])/2]
@@ -76,14 +81,21 @@ def compute(clas,ground_truth,predict,threshold = 0.3):
 						bb_confidence.append(pr_bb_list[j][1])
 						bb_iou.append(iou_table[i][j])
 
-		fp,tp,ap = AP(bb_confidence,bb_iou,len(gt_bb_list))
+		a,b,c = AP(bb_confidence,bb_iou,len(gt_bb_list))
+		fp += a
+		tp += b
+		ap += c
+		flag = 1
 						#ap = AP(iou_table,pr_bb_list)
-	return fn,fp,tp,ap,1
+	return fn,fp,tp,ap,flag
 
 ## read file gt : [img][bb number][class,x,y,w,h] pr : [img][bb number][class,confidence,x,y,w,h]
 path = os.getcwd()
 ground_truth_list = os.listdir(os.path.join(path,"ground_truth_result"))
 predict_list = os.listdir(os.path.join(path,"predict_result"))
+ground_truth_list.sort()
+predict_list.sort()
+
 ground_truth,predict = [],[]
 for gt in ground_truth_list:
 	ground_truth.append(read_file(os.path.join(path,"ground_truth_result",gt)))
@@ -93,14 +105,17 @@ for pr in predict_list:
 ## 36 classes
 FN,FP,TP,SAP = 0,0,0,0
 category = 0
+
 for i in range(36):
 	fn,fp,tp,ap,flag = compute(str(i),ground_truth,predict)
+	#print(fn,fp,tp,ap)
 	TP += tp
 	FN += fn
 	FP += fp
 	SAP += ap
 	if flag == 1:
 		category += 1
+	flag = 0
 
 print("TP : ",TP)
 print("FP : ",FP)

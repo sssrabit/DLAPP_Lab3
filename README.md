@@ -1,8 +1,9 @@
 # DLAPP_Lab3
+## 10/31 update
 ### output rule
 demo當天會是給好幾張圖片以及其ground truth(txt檔)，會需要請你們將每張圖片經過你們訓練好的yolov3 model預測出結果，並將結果用以下規定存成txt檔 : 
-- gt : class x y w h
-- predict : class confidence x y w h
+- gt的txt格式 : class x y w h
+- predict的txt格式 : class confidence x y w h
 注意請將x,y,w,h正規化到0~1
 
 - 每一張圖片產生一個txt檔(其名稱請跟圖片一樣)

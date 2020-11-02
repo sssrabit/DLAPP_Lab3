@@ -24,23 +24,27 @@ def AP(bb_confidence,bb_iou,gt_number,threshold = 0.5):
 	fp,tp,ap = 0,0,0
 	# sort iou
 	x,y = [list(h) for h in zip(*sorted(zip(bb_confidence,bb_iou),reverse = True))] #x : sorted confidence, y : sorted iou
+	r = 0
+	p = 1
 	for i in range(len(x)):
 		if y[i] < threshold:
 			fp += 1
 		else:
 			tp += 1
-		if i == 0: # the first bb
-			r = tp/gt_number  #recall
-			p = tp/(i+1)      #precision
-		else:
-			new_r = tp/gt_number
-			ap += p*abs(r-new_r)
-			p = tp/(i+1)
+		new_r = tp/gt_number
+		new_p = tp/(i+1)
+		ap += 0.5*(p+new_p)*abs(r-new_r)
+		r = new_r
+		p = new_p
 	return fp,tp,ap
 
 def compute(clas,ground_truth,predict,threshold = 0.3):
+	# initial
 	fn,fp,tp,ap,flag = 0,0,0,0,0
-	#print(clas)
+	bb_confidence,bb_iou = [],[]
+	all_gt_bb_list = []
+	all_pr_bb_list = []
+
 	for img in range(len(ground_truth)):
 		# find class
 		gt_bb_list = []
@@ -51,17 +55,8 @@ def compute(clas,ground_truth,predict,threshold = 0.3):
 		for i in range(len(predict[img])):
 			if predict[img][i][0] == clas:
 				pr_bb_list.append(predict[img][i])
-		# if no gt or no predict in this class
-		if pr_bb_list == [] and gt_bb_list == []:
-			continue
-		elif pr_bb_list and gt_bb_list == []:
-			fp += len(pr_bb_list)
-			flag = 1
-			continue
-		elif pr_bb_list == [] and gt_bb_list:
-			fn += len(gt_bb_list)
-			flag = 1
-			continue
+		all_gt_bb_list.extend(gt_bb_list)
+		all_pr_bb_list.extend(pr_bb_list)
 		# if gt and predict have data
 		iou_table = [[-1 for i in range(len(pr_bb_list))] for j in range(len(gt_bb_list))]
 		for i in range(len(gt_bb_list)):
@@ -70,7 +65,6 @@ def compute(clas,ground_truth,predict,threshold = 0.3):
 				predict_bb = [float(pr_bb_list[j][2])-float(pr_bb_list[j][4])/2,float(pr_bb_list[j][3])-float(pr_bb_list[j][5])/2,float(pr_bb_list[j][2])+float(pr_bb_list[j][4])/2,float(pr_bb_list[j][3])+float(pr_bb_list[j][5])/2]
 				iou_table[i][j] = iou(predict_bb,gt_bb)
 		## calculate FN
-		bb_confidence,bb_iou = [],[]
 		for i in range(len(iou_table)):
 			if all([ x<threshold for x in iou_table[i]]) :
 				# gt isn't predict
@@ -81,12 +75,16 @@ def compute(clas,ground_truth,predict,threshold = 0.3):
 						bb_confidence.append(pr_bb_list[j][1])
 						bb_iou.append(iou_table[i][j])
 
-		a,b,c = AP(bb_confidence,bb_iou,len(gt_bb_list))
-		fp += a
-		tp += b
-		ap += c
+	# if no gt or no predict in this class
+	if all_pr_bb_list and all_gt_bb_list :
+		fp,tp,ap = AP(bb_confidence,bb_iou,len(all_gt_bb_list))
 		flag = 1
-						#ap = AP(iou_table,pr_bb_list)
+	elif all_pr_bb_list and all_gt_bb_list == []:
+		fp += len(pr_bb_list)
+		flag = 1
+	elif all_pr_bb_list == [] and all_gt_bb_list:
+		fn += len(gt_bb_list)
+		flag = 1
 	return fn,fp,tp,ap,flag
 
 ## read file gt : [img][bb number][class,x,y,w,h] pr : [img][bb number][class,confidence,x,y,w,h]
